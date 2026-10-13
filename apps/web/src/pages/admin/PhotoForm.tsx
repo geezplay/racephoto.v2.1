@@ -20,6 +20,7 @@ export default function PhotoForm() {
         price: ''
     });
     const [variantPreviewUrl, setVariantPreviewUrl] = useState<any>(null);
+    const [generatingPreview, setGeneratingPreview] = useState(false);
 
     // Recap photos state
     const [recaps, setRecaps] = useState<any[]>([]);
@@ -190,14 +191,19 @@ export default function PhotoForm() {
         const fileInput = document.getElementById('recap-files');
         if (fileInput) (fileInput as any).value = '';
         setUploadingRecaps(false);
+    };
 
-        if (successCount > 0) {
-            try {
-                await generateVariantPreview(id);
-                await fetchPhoto();
-            } catch (error: any) {
-                console.error('Error generating variant preview:', error);
-            }
+    const handleGenerateVariantPreview = async () => {
+        if (!id) return;
+        setGeneratingPreview(true);
+        try {
+            await generateVariantPreview(id);
+            await fetchPhoto();
+        } catch (error: any) {
+            console.error('Error generating variant preview:', error);
+            alert('Gagal membuat preview');
+        } finally {
+            setGeneratingPreview(false);
         }
     };
 
@@ -528,7 +534,7 @@ export default function PhotoForm() {
                                     }}>
                                         <ImageIcon size={12} /> Preview Otomatis (dari varian)
                                     </label>
-                                    {variantPreviewUrl ? (
+                                    {variantPreviewUrl && (
                                         <>
                                             <img
                                                 src={variantPreviewUrl}
@@ -550,17 +556,16 @@ export default function PhotoForm() {
                                                 Preview ini di-generate otomatis dari varian foto
                                             </p>
                                         </>
-                                    ) : (
-                                        <div style={{
-                                            padding: '2rem',
-                                            textAlign: 'center',
-                                            color: 'rgba(255,255,255,0.3)',
-                                            background: 'rgba(0,0,0,0.3)',
-                                            borderRadius: '12px'
+                                    )}
+                                    {!variantPreviewUrl && (
+                                        <p style={{
+                                            margin: 0,
+                                            fontSize: '0.8rem',
+                                            color: 'rgba(255,255,255,0.4)',
+                                            fontStyle: 'italic'
                                         }}>
-                                            <div style={{ marginBottom: '0.5rem', opacity: 0.5 }}><ImageIcon size={32} /></div>
-                                            <p style={{ fontSize: '0.875rem' }}>Preview akan dibuat otomatis setelah varian diunggah</p>
-                                        </div>
+                                            Preview akan dibuat setelah varian diunggah
+                                        </p>
                                     )}
                                 </div>
                             )}
@@ -704,7 +709,7 @@ export default function PhotoForm() {
                                                 fontSize: '0.875rem'
                                             }}>
                                                 {uploadProgress.current < uploadProgress.total
-                                                    ? `Mengupload foto ${uploadProgress.current + 1} dari ${uploadProgress.total}`
+                                                    ? `Mengupload foto ${uploadProgress.current + 1} dari ${uploadProgress.total} (${uploadProgress.total > 0 ? Math.round(((uploadProgress.current + 1) / uploadProgress.total) * 100) : 0}%)`
                                                     : `Selesai! ${uploadProgress.success} berhasil`
                                                 }
                                             </span>
@@ -862,9 +867,35 @@ export default function PhotoForm() {
                             }}>
                                 <Lightbulb size={12} /> Varian foto akan ditampilkan saat pembeli melihat detail foto ini
                             </p>
-                        </div>
-                    )}
-                </div>
+                                    </div>
+                                )}
+                                {!uploadingRecaps && recaps.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateVariantPreview}
+                                        disabled={generatingPreview}
+                                        style={{
+                                            width: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '0.5rem',
+                                            background: '#39FF14',
+                                            color: 'black',
+                                            padding: '1rem',
+                                            borderRadius: '12px',
+                                            fontWeight: '900',
+                                            textTransform: 'uppercase',
+                                            fontStyle: 'italic',
+                                            border: 'none',
+                                            cursor: generatingPreview ? 'not-allowed' : 'pointer',
+                                            opacity: generatingPreview ? 0.5 : 1
+                                        }}
+                                    >
+                                        {generatingPreview ? (<><Hourglass size={16} /> Membuat Preview...</>) : (<><Upload size={16} /> Selesai dan Buat Preview</>)}
+                                    </button>
+                                )}
+                            </div>
             </div>
             <ConfirmModal />
         </AdminLayout>

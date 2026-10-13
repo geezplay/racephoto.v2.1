@@ -26,8 +26,10 @@ export function columnsFor(n: number): number {
   return 7;
 }
 
+const PREVIEW_VERSION = 'v2';
+
 export function contentHash(recaps: Array<{ id: number; file_path: string }>): string {
-  const payload = recaps.map((r) => ({ id: r.id, file_path: r.file_path }));
+  const payload = { v: PREVIEW_VERSION, recaps: recaps.map((r) => ({ id: r.id, file_path: r.file_path })) };
   return crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex').slice(0, 8);
 }
 

@@ -3,10 +3,11 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/shared/package.json packages/shared/
-COPY apps/web/package.json apps/web/
-RUN npm install
+COPY package.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN npm install --no-package-lock --no-audit --no-fund --workspaces --include-workspace-root
 
 COPY packages/shared packages/shared
 COPY apps/web apps/web

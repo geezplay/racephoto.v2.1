@@ -3,10 +3,11 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/shared/package.json packages/shared/
-COPY apps/api/package.json apps/api/
-RUN npm install
+COPY package.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN npm install --no-package-lock --no-audit --no-fund --workspaces --include-workspace-root
 
 COPY packages/shared packages/shared
 COPY apps/api apps/api
@@ -17,10 +18,11 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
-COPY packages/shared/package.json packages/shared/
-COPY apps/api/package.json apps/api/
-RUN npm install --omit=dev
+COPY package.json ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN npm install --omit=dev --no-package-lock --no-audit --no-fund --workspaces --include-workspace-root
 
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/apps/api/dist apps/api/dist

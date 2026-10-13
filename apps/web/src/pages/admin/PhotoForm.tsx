@@ -24,7 +24,6 @@ export default function PhotoForm() {
 
     // Recap photos state
     const [recaps, setRecaps] = useState<any[]>([]);
-    const [recapFiles, setRecapFiles] = useState<any[]>([]);
     const [uploadingRecaps, setUploadingRecaps] = useState(false);
 
     // Custom confirm dialog state
@@ -140,7 +139,6 @@ export default function PhotoForm() {
 
     const handleRecapFilesChange = (e: any) => {
         const files = Array.from((e.target as HTMLInputElement).files!);
-        setRecapFiles(files);
         // Auto-start upload when files are selected
         if (files.length > 0 && id) {
             handleUploadRecapsSequential(files);
@@ -173,6 +171,7 @@ export default function PhotoForm() {
                     const newRecapsWithUrl = res.data.map(r => ({
                         id: r.id,
                         variant_number: r.variant_number,
+                        file_path: r.file_path,
                         url: `${import.meta.env.VITE_API_URL}/uploads/recaps/${r.file_path}`
                     }));
                     setRecaps((prev: any) => [...prev, ...newRecapsWithUrl]);
@@ -184,7 +183,6 @@ export default function PhotoForm() {
             }
         }
 
-        setRecapFiles([]);
         // Show final result briefly before clearing
         await new Promise(resolve => setTimeout(resolve, 1500));
         setUploadProgress({ current: 0, total: 0, success: 0, failed: 0 });
@@ -205,11 +203,6 @@ export default function PhotoForm() {
         } finally {
             setGeneratingPreview(false);
         }
-    };
-
-    const handleUploadRecaps = async () => {
-        if (recapFiles.length === 0 || !id) return;
-        await handleUploadRecapsSequential(recapFiles);
     };
 
     const handleDeleteRecap = (recapId: any) => {
@@ -635,44 +628,33 @@ export default function PhotoForm() {
                                 }}>
                                     Upload Varian Baru (Multiple)
                                 </label>
-                                <div style={{ display: 'flex', gap: '0.5rem', flexDirection: isMobile ? 'column' : 'row' }}>
-                                    <input
-                                        id="recap-files"
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleRecapFilesChange}
-                                        disabled={uploadingRecaps}
-                                        style={{
-                                            flex: 1,
-                                            background: 'rgba(0,0,0,0.5)',
-                                            border: '1px solid rgba(255,255,255,0.1)',
-                                            borderRadius: '8px',
-                                            padding: '0.75rem',
-                                            color: 'white',
-                                            fontSize: '0.75rem'
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleUploadRecaps}
-                                        disabled={uploadingRecaps || recapFiles.length === 0}
-                                        style={{
-                                            background: uploadingRecaps ? 'rgba(57,255,20,0.3)' : '#39FF14',
-                                            color: uploadingRecaps ? '#39FF14' : 'black',
-                                            padding: '0.75rem 1rem',
-                                            borderRadius: '8px',
-                                            border: uploadingRecaps ? '1px solid #39FF14' : 'none',
-                                            fontWeight: '700',
-                                            cursor: uploadingRecaps || recapFiles.length === 0 ? 'not-allowed' : 'pointer',
-                                            opacity: recapFiles.length === 0 && !uploadingRecaps ? 0.5 : 1,
-                                            whiteSpace: 'nowrap',
-                                            minWidth: isMobile ? '100%' : '120px'
-                                        }}
-                                    >
-                                        {uploadingRecaps ? (<><Hourglass size={14} /> Uploading...</>) : (<><Upload size={14} /> Upload ({recapFiles.length})</>)}
-                                    </button>
-                                </div>
+                                <input
+                                    id="recap-files"
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    onChange={handleRecapFilesChange}
+                                    disabled={uploadingRecaps}
+                                    style={{
+                                        width: '100%',
+                                        boxSizing: 'border-box' as const,
+                                        background: 'rgba(0,0,0,0.5)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '8px',
+                                        padding: '0.75rem',
+                                        color: 'white',
+                                        fontSize: '0.75rem',
+                                        cursor: uploadingRecaps ? 'not-allowed' : 'pointer'
+                                    }}
+                                />
+                                <p style={{
+                                    margin: '0.5rem 0 0',
+                                    fontSize: '0.7rem',
+                                    color: 'rgba(255,255,255,0.35)',
+                                    fontStyle: 'italic'
+                                }}>
+                                    Upload otomatis dimulai setelah foto dipilih
+                                </p>
 
                                 {/* Upload Progress Indicator */}
                                 {uploadingRecaps && (
@@ -803,58 +785,74 @@ export default function PhotoForm() {
                                         background: 'rgba(0,0,0,0.3)',
                                         borderRadius: '12px'
                                     }}>
-                                        {recaps.map((recap, index) => (
-                                            <div
-                                                key={recap.id}
-                                                style={{
-                                                    position: 'relative',
-                                                    aspectRatio: '1',
-                                                    borderRadius: '8px',
-                                                    overflow: 'hidden',
-                                                    border: '1px solid rgba(255,255,255,0.1)'
-                                                }}
-                                            >
-                                                <img
-                                                    src={recap.url}
-                                                    alt={`Varian ${index + 1}`}
+                                        {recaps.map((recap, index) => {
+                                            const variantNo = recap.variant_number || index + 1;
+                                            const basename = String(recap.file_path || recap.url || '').split('/').pop() || `varian-${variantNo}`;
+                                            return (
+                                            <div key={recap.id}>
+                                                <div
                                                     style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'cover'
+                                                        position: 'relative',
+                                                        aspectRatio: '1',
+                                                        borderRadius: '8px',
+                                                        overflow: 'hidden',
+                                                        border: '1px solid rgba(255,255,255,0.1)'
                                                     }}
-                                                    onError={(e) => { (e.target as HTMLInputElement).src = '/placeholder.jpg'; }}
-                                                />
-                                                <div style={{
-                                                    position: 'absolute',
-                                                    bottom: 0,
-                                                    left: 0,
-                                                    right: 0,
-                                                    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                                                    padding: '0.5rem 0.25rem 0.25rem',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center'
-                                                }}>
-                                                    <span style={{ fontSize: '0.625rem', color: 'white', fontWeight: '700' }}>
-                                                        #{recap.variant_number || index + 1}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => handleDeleteRecap(recap.id)}
+                                                >
+                                                    <img
+                                                        src={recap.url}
+                                                        alt={`Varian ${index + 1}`}
                                                         style={{
-                                                            background: 'rgba(239,68,68,0.8)',
-                                                            border: 'none',
-                                                            padding: '0.125rem 0.25rem',
-                                                            borderRadius: '2px',
-                                                            color: 'white',
-                                                            cursor: 'pointer',
-                                                            fontSize: '0.5rem'
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover'
                                                         }}
-                                                    >
-                                                        <X size={10} />
-                                                    </button>
+                                                        onError={(e) => { (e.target as HTMLInputElement).src = '/placeholder.jpg'; }}
+                                                    />
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        bottom: 0,
+                                                        left: 0,
+                                                        right: 0,
+                                                        background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                                                        padding: '0.5rem 0.25rem 0.25rem',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center'
+                                                    }}>
+                                                        <span style={{ fontSize: '0.625rem', color: 'white', fontWeight: '700' }}>
+                                                            #{variantNo}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteRecap(recap.id)}
+                                                            style={{
+                                                                background: 'rgba(239,68,68,0.8)',
+                                                                border: 'none',
+                                                                padding: '0.125rem 0.25rem',
+                                                                borderRadius: '2px',
+                                                                color: 'white',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.5rem'
+                                                            }}
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
+                                                    </div>
                                                 </div>
+                                                <p style={{
+                                                    margin: '0.25rem 0 0',
+                                                    fontSize: '0.625rem',
+                                                    color: 'rgba(255,255,255,0.5)',
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis'
+                                                }}>
+                                                    #{variantNo} • {basename}
+                                                </p>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -867,35 +865,37 @@ export default function PhotoForm() {
                             }}>
                                 <Lightbulb size={12} /> Varian foto akan ditampilkan saat pembeli melihat detail foto ini
                             </p>
-                                    </div>
-                                )}
-                                {!uploadingRecaps && recaps.length > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleGenerateVariantPreview}
-                                        disabled={generatingPreview}
-                                        style={{
-                                            width: '100%',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '0.5rem',
-                                            background: '#39FF14',
-                                            color: 'black',
-                                            padding: '1rem',
-                                            borderRadius: '12px',
-                                            fontWeight: '900',
-                                            textTransform: 'uppercase',
-                                            fontStyle: 'italic',
-                                            border: 'none',
-                                            cursor: generatingPreview ? 'not-allowed' : 'pointer',
-                                            opacity: generatingPreview ? 0.5 : 1
-                                        }}
-                                    >
-                                        {generatingPreview ? (<><Hourglass size={16} /> Membuat Preview...</>) : (<><Upload size={16} /> Selesai dan Buat Preview</>)}
-                                    </button>
-                                )}
-                            </div>
+
+                            {!uploadingRecaps && recaps.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleGenerateVariantPreview}
+                                    disabled={generatingPreview}
+                                    style={{
+                                        width: '100%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.5rem',
+                                        marginTop: '1rem',
+                                        background: '#39FF14',
+                                        color: 'black',
+                                        padding: '1rem',
+                                        borderRadius: '12px',
+                                        fontWeight: '900',
+                                        textTransform: 'uppercase',
+                                        fontStyle: 'italic',
+                                        border: 'none',
+                                        cursor: generatingPreview ? 'not-allowed' : 'pointer',
+                                        opacity: generatingPreview ? 0.5 : 1
+                                    }}
+                                >
+                                    {generatingPreview ? (<><Hourglass size={16} /> Membuat Preview...</>) : (<><Upload size={16} /> Selesai dan Buat Preview</>)}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
             <ConfirmModal />
         </AdminLayout>

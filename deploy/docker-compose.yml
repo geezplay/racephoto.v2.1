@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: apps/api/Containerfile
+    image: racephoto-backend:latest
+    container_name: racephoto-backend
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - ../apps/api/.env.production
+    environment:
+      PORT: "5010"
+    volumes:
+      - ../apps/api/uploads:/app/apps/api/uploads
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: apps/web/Containerfile
+    image: racephoto-frontend:latest
+    container_name: racephoto-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"

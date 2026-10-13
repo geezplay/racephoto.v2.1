@@ -623,14 +623,12 @@ router.post('/photos', uploadPhoto.single('photo'), async (req: AuthRequest, res
       startNo: string;
       price: string;
     };
-    if (!req.file) return res.status(400).json({ message: 'Photo file required' });
-
     const photo = await Photo.create({
       event_id: Number(eventId),
       class: photoClass,
       start_no: startNo,
       price: Number(price),
-      url: `/uploads/photos/${req.file.filename}`,
+      url: req.file ? `/uploads/photos/${req.file.filename}` : '/uploads/photos/pending.jpg',
       created_by: user.id,
     });
     void regenerateClassPreview(photo.event_id, photo.class);

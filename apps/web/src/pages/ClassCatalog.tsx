@@ -13,6 +13,7 @@ export default function ClassCatalog() {
     const [searchNo, setSearchNo] = useState('');
     const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+    const [showVariantImage, setShowVariantImage] = useState(false);
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [zoomedImage, setZoomedImage] = useState<any>(null);
     const [preview, setPreview] = useState<{ url: string | null; updatedAt: string | null }>({ url: null, updatedAt: null });
@@ -56,6 +57,7 @@ export default function ClassCatalog() {
         setLoadingDetail(true);
         setSelectedPhoto(photo);
         setSelectedVariantIndex(0);
+        setShowVariantImage(false);
         try {
             // Fetch full photo details with recaps
             const res = await getPhoto(photo.id || photo._id);
@@ -70,6 +72,7 @@ export default function ClassCatalog() {
     const closePhotoDetail = () => {
         setSelectedPhoto(null);
         setSelectedVariantIndex(0);
+        setShowVariantImage(false);
     };
 
     // Get variants (recaps only - these are the purchasable items)
@@ -349,20 +352,26 @@ export default function ClassCatalog() {
                                 <div style={{ overflowY: 'auto', flex: 1 }}>
                                     {/* Main Preview Image — Click to Zoom */}
                                     <div style={{ position: 'relative', background: '#000' }}>
-                                        <img
-                                            src={(getVariants(selectedPhoto)[selectedVariantIndex]?.url) || selectedPhoto.variantPreviewUrl || selectedPhoto.photoUrl || selectedPhoto.url}
-                                            alt={`Photo #${selectedPhoto.start_no || selectedPhoto.startNo}`}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setZoomedImage((getVariants(selectedPhoto)[selectedVariantIndex]?.url) || selectedPhoto.variantPreviewUrl || selectedPhoto.photoUrl || selectedPhoto.url);
-                                            }}
-                                            style={{
-                                                width: '100%',
-                                                maxHeight: '50vh',
-                                                objectFit: 'contain',
-                                                cursor: 'zoom-in'
-                                            }}
-                                        />
+                                        {(() => {
+                                            const variants = getVariants(selectedPhoto);
+                                            const mainUrl = (showVariantImage ? variants[selectedVariantIndex]?.url : null) || selectedPhoto.variantPreviewUrl || selectedPhoto.photoUrl || selectedPhoto.url;
+                                            return (
+                                                <img
+                                                    src={mainUrl}
+                                                    alt={`Photo #${selectedPhoto.start_no || selectedPhoto.startNo}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setZoomedImage(mainUrl);
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        maxHeight: '50vh',
+                                                        objectFit: 'contain',
+                                                        cursor: 'zoom-in'
+                                                    }}
+                                                />
+                                            );
+                                        })()}
                                         <div style={{
                                             position: 'absolute',
                                             top: '1rem',
@@ -394,6 +403,63 @@ export default function ClassCatalog() {
                                             <Search size={12} /> Tap untuk zoom
                                         </div>
                                     </div>
+
+                                    {/* Variant Thumbnails Strip */}
+                                    {(() => {
+                                        const variants = getVariants(selectedPhoto);
+                                        if (variants.length === 0) return null;
+                                        return (
+                                            <div style={{
+                                                display: 'flex',
+                                                gap: '0.5rem',
+                                                overflowX: 'auto',
+                                                padding: '0.75rem 1rem',
+                                                background: '#000',
+                                                borderTop: '1px solid rgba(255,255,255,0.08)'
+                                            }}>
+                                                {selectedPhoto.variantPreviewUrl && (
+                                                    <button
+                                                        onClick={() => setShowVariantImage(false)}
+                                                        title="Lihat semua varian"
+                                                        style={{
+                                                            width: '64px',
+                                                            height: '64px',
+                                                            flexShrink: 0,
+                                                            borderRadius: '8px',
+                                                            overflow: 'hidden',
+                                                            cursor: 'pointer',
+                                                            border: !showVariantImage ? '2px solid #39FF14' : '1px solid rgba(255,255,255,0.2)',
+                                                            background: 'transparent',
+                                                            padding: 0
+                                                        }}
+                                                    >
+                                                        <img src={selectedPhoto.variantPreviewUrl} alt="Semua varian" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </button>
+                                                )}
+                                                {variants.map((variant: any, idx: any) => (
+                                                    <button
+                                                        key={variant.id}
+                                                        onClick={() => { setSelectedVariantIndex(idx); setShowVariantImage(true); }}
+                                                        title={`V${variant.variantNumber}`}
+                                                        style={{
+                                                            width: '64px',
+                                                            height: '64px',
+                                                            flexShrink: 0,
+                                                            borderRadius: '8px',
+                                                            overflow: 'hidden',
+                                                            cursor: 'pointer',
+                                                            border: (showVariantImage && selectedVariantIndex === idx) ? '2px solid #39FF14' : '1px solid rgba(255,255,255,0.2)',
+                                                            background: 'transparent',
+                                                            padding: 0,
+                                                            position: 'relative'
+                                                        }}
+                                                    >
+                                                        <img src={variant.url} alt={`V${variant.variantNumber}`} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
 
                                     {/* Info Section */}
                                     <div style={{ padding: '1.5rem' }}>
@@ -624,7 +690,7 @@ export default function ClassCatalog() {
                                                     return (
                                                         <button
                                                             key={variant.id}
-                                                            onClick={() => setSelectedVariantIndex(idx)}
+                                                            onClick={() => { setSelectedVariantIndex(idx); setShowVariantImage(true); }}
                                                             style={{
                                                                 padding: '0.625rem 1rem',
                                                                 borderRadius: '10px',

@@ -20,12 +20,21 @@ export default function Success() {
     const [searchParams] = useSearchParams();
     const rawOrderId = searchParams.get('order_id') || searchParams.get('invoice_number') || localStorage.getItem('pending_order_id');
     const orderId = extractOrderId(rawOrderId);
-    const guestToken = orderId ? localStorage.getItem(`racephoto_order_${orderId}`) : null;
     const urlStatus = searchParams.get('status');
     const transactionStatus = searchParams.get('transaction_status'); // Snap sends this too
     const [order, setOrder] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [guestToken, setGuestToken] = useState<string | null>(null);
+    const [fetchToken, setFetchToken] = useState<string | null>(null);
     const pollRef = useRef<any>(null);
+    const downloadToken = guestToken || fetchToken;
+
+    // Load the guest token after orderId is known so download links re-render.
+    useEffect(() => {
+        if (!orderId) return;
+        const stored = localStorage.getItem(`racephoto_order_${orderId}`);
+        if (stored) setGuestToken(stored);
+    }, [orderId]);
 
     useEffect(() => {
         const fetchOrder = async () => {
@@ -33,10 +42,14 @@ export default function Success() {
                 setLoading(false);
                 return;
             }
+            const token = localStorage.getItem(`racephoto_order_${orderId}`);
 
             try {
-                const res = await getOrder(orderId, guestToken);
+                const res = await getOrder(orderId, token);
                 setOrder(res.data);
+                // Fallback: reuse the token that successfully fetched the order
+                // for download links even if state token is still null.
+                if (token) setFetchToken(token);
 
                 // If status is not success yet, poll check-status as webhook fallback
                 if (res.data?.status !== 'success') {
@@ -50,10 +63,10 @@ export default function Success() {
                         }
                         try {
                             // Call check-status which queries Midtrans API and updates order
-                            const statusRes = await api.get(`/payment/check-status/${orderId}`, { params: guestToken ? { token: guestToken } : {} });
+                            const statusRes = await api.get(`/payment/check-status/${orderId}`, { params: token ? { token } : {} });
                             if (statusRes.data?.status === 'success') {
                                 // Refresh order data
-                                const updatedOrder = await getOrder(orderId, guestToken);
+                                const updatedOrder = await getOrder(orderId, token);
                                 setOrder(updatedOrder.data);
                                 clearInterval(pollRef.current);
                             }
@@ -363,7 +376,7 @@ export default function Success() {
 
                                             {/* Download Button — full width */}
                                             <a
-                                                href={`${API_URL}/api/photos/download-by-order/${orderId}/${idx}${guestToken ? `?token=${encodeURIComponent(guestToken)}` : ''}`}
+                                                href={`${API_URL}/api/photos/download-by-order/${orderId}/${idx}${downloadToken ? `?token=${encodeURIComponent(downloadToken)}` : ''}`}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',

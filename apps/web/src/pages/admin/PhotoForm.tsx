@@ -17,10 +17,8 @@ export default function PhotoForm() {
         event_id: '',
         class_name: '',
         start_no: '',
-        price: '',
-        image: null
+        price: ''
     });
-    const [preview, setPreview] = useState<any>(null);
     const [variantPreviewUrl, setVariantPreviewUrl] = useState<any>(null);
 
     // Recap photos state
@@ -87,12 +85,8 @@ export default function PhotoForm() {
                 event_id: photo.event_id || '',
                 class_name: photo.class || '',
                 start_no: photo.start_no || photo.startNo || '',
-                price: photo.price || '',
-                image: null
+                price: photo.price || ''
             });
-            if (photo.photoUrl || photo.url) {
-                setPreview(photo.photoUrl || photo.url);
-            }
             setVariantPreviewUrl(photo.variantPreviewUrl || null);
             // Load existing recaps - prepend API URL to relative paths
             if (photo.recaps) {
@@ -114,14 +108,6 @@ export default function PhotoForm() {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     };
 
-    const handleImageChange = (e: any) => {
-        const file = (e.target as HTMLInputElement).files![0];
-        if (file) {
-            setFormData((prev: any) => ({ ...prev, image: file }));
-            setPreview(URL.createObjectURL(file));
-        }
-    };
-
     const handleSubmit = async (e: any) => {
         e.preventDefault();
         setSaving(true);
@@ -131,16 +117,15 @@ export default function PhotoForm() {
             data.append('class', formData.class_name);
             data.append('startNo', formData.start_no);
             data.append('price', formData.price);
-            if (!isEdit && formData.image) {
-                data.append('photo', formData.image);
-            }
 
             if (isEdit) {
                 await updatePhoto(id, data);
+                navigate('/admin');
             } else {
-                await uploadPhoto(data);
+                const res = await uploadPhoto(data);
+                const newId = res.data?.id || res.data?._id || res.data?.photoId;
+                navigate(newId ? `/admin/recap/${newId}` : '/admin');
             }
-            navigate('/admin');
         } catch (error: any) {
             console.error('Error saving photo:', error);
             alert('Gagal menyimpan foto');
@@ -529,21 +514,21 @@ export default function PhotoForm() {
                                 />
                             </div>
 
-                            {/* Image */}
-                            <div>
-                                <label style={{
-                                    display: 'block',
-                                    fontSize: '10px',
-                                    textTransform: 'uppercase',
-                                    fontWeight: '900',
-                                    color: 'rgba(255,255,255,0.4)',
-                                    letterSpacing: '0.1em',
-                                    marginBottom: '0.5rem'
-                                }}>
-                                    <ImageIcon size={12} /> {isEdit ? 'Preview Otomatis (dari varian)' : 'Foto Utama'}
-                                </label>
-                                {isEdit ? (
-                                    variantPreviewUrl ? (
+                            {/* Image - Preview Otomatis (edit only) */}
+                            {isEdit && (
+                                <div>
+                                    <label style={{
+                                        display: 'block',
+                                        fontSize: '10px',
+                                        textTransform: 'uppercase',
+                                        fontWeight: '900',
+                                        color: 'rgba(255,255,255,0.4)',
+                                        letterSpacing: '0.1em',
+                                        marginBottom: '0.5rem'
+                                    }}>
+                                        <ImageIcon size={12} /> Preview Otomatis (dari varian)
+                                    </label>
+                                    {variantPreviewUrl ? (
                                         <>
                                             <img
                                                 src={variantPreviewUrl}
@@ -576,43 +561,21 @@ export default function PhotoForm() {
                                             <div style={{ marginBottom: '0.5rem', opacity: 0.5 }}><ImageIcon size={32} /></div>
                                             <p style={{ fontSize: '0.875rem' }}>Preview akan dibuat otomatis setelah varian diunggah</p>
                                         </div>
-                                    )
-                                ) : (
-                                    <>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleImageChange}
-                                            required
-                                            style={{
-                                                width: '100%',
-                                                background: 'rgba(0,0,0,0.5)',
-                                                border: '1px solid rgba(255,255,255,0.1)',
-                                                borderRadius: '12px',
-                                                padding: '1rem',
-                                                color: 'white',
-                                                fontSize: '0.875rem',
-                                                boxSizing: 'border-box' as const
-                                            }}
-                                        />
-                                        {preview && (
-                                            <img
-                                                src={preview}
-                                                alt="Preview"
-                                                style={{
-                                                    marginTop: '1rem',
-                                                    width: '100%',
-                                                    maxHeight: '200px',
-                                                    objectFit: 'cover',
-                                                    borderRadius: '12px'
-                                                }}
-                                            />
-                                        )}
-                                    </>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Submit */}
+                            {!isEdit && (
+                                <p style={{
+                                    margin: 0,
+                                    fontSize: '0.75rem',
+                                    color: 'rgba(255,255,255,0.4)',
+                                    fontStyle: 'italic'
+                                }}>
+                                    <Lightbulb size={12} /> Foto utama dibuat otomatis dari varian setelah upload
+                                </p>
+                            )}
                             <button
                                 type="submit"
                                 disabled={saving}
@@ -631,7 +594,7 @@ export default function PhotoForm() {
                                     boxShadow: '0 15px 30px rgba(57,255,20,0.3)'
                                 }}
                             >
-                                {saving ? (<><Hourglass size={16} /> Menyimpan...</>) : isEdit ? (<><Save size={16} /> Update Foto</>) : (<><Upload size={16} /> Upload Foto</>)}
+                                {saving ? (<><Hourglass size={16} /> Menyimpan...</>) : isEdit ? (<><Save size={16} /> Update Foto</>) : (<><Upload size={16} /> Simpan & Lanjut Upload Varian</>)}
                             </button>
                         </div>
                     </form>

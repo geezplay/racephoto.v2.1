@@ -146,7 +146,9 @@ router.post('/', optionalAuth, async (req: AuthRequest, res: Response) => {
     }
 
     const finalPrice = Math.max(0, totalPrice - discountAmount);
-    const guestToken = req.user ? null : generateGuestToken();
+    const userId = req.user ? req.user.id : null;
+    // Guest orders (user_id null) must always carry a token; logged-in orders keep null.
+    const guestToken = userId == null ? generateGuestToken() : null;
 
     const order = await Order.create(
       {
@@ -156,7 +158,7 @@ router.post('/', optionalAuth, async (req: AuthRequest, res: Response) => {
         status: 'pending',
         discount_code: appliedCode,
         discount_amount: discountAmount,
-        user_id: req.user ? req.user.id : null,
+        user_id: userId,
         guest_token: guestToken ? hashToken(guestToken) : null,
       },
       { transaction: t },

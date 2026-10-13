@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: apps/api/Containerfile
+    container_name: racephoto-backend
+    restart: always
+    network_mode: host
+    env_file:
+      - ../apps/api/.env.production
+    volumes:
+      - ../apps/api/uploads:/app/apps/api/uploads
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: apps/web/Containerfile
+    container_name: racephoto-frontend
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"

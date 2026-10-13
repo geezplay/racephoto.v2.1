@@ -1,0 +1,30 @@
+# Build context: repository root (see deploy/podman-compose.yml)
+# Stage 1: install workspaces and build shared + api
+FROM node:20-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+RUN npm install
+
+COPY packages/shared packages/shared
+COPY apps/api apps/api
+RUN npm run build -w @racephoto/shared && npm run build -w @racephoto/api
+
+# Stage 2: runtime (production dependencies only)
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+RUN npm install --omit=dev
+
+COPY --from=build /app/packages/shared/dist packages/shared/dist
+COPY --from=build /app/apps/api/dist apps/api/dist
+
+RUN mkdir -p apps/api/uploads
+EXPOSE 5000
+CMD ["node", "apps/api/dist/server.js"]

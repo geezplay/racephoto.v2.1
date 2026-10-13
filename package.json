@@ -1,0 +1,30 @@
+{
+  "name": "racephoto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RacePhoto / GeezPlay monorepo (API + Web + shared)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @racephoto/shared && npm run build -w @racephoto/api && npm run build -w @racephoto/web",
+    "build:shared": "npm run build -w @racephoto/shared",
+    "build:api": "npm run build -w @racephoto/api",
+    "build:web": "npm run build -w @racephoto/web",
+    "dev:api": "npm run dev -w @racephoto/api",
+    "dev:web": "npm run dev -w @racephoto/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @racephoto/api",
+    "db:seed": "npm run db:seed -w @racephoto/api",
+    "db:reset": "npm run db:reset -w @racephoto/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output (removed to allow pushing dist)
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

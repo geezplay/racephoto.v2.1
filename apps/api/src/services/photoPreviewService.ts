@@ -9,7 +9,6 @@ const RECAPS_DIR = path.join(__dirname, '..', '..', 'uploads', 'recaps');
 
 const TILE_W = 300;
 const TILE_H = 300;
-const CAPTION_H = 34;
 const GAP = 12;
 const HEADER_H = 56;
 const MAX_VARIANTS = 100;
@@ -49,49 +48,37 @@ function resolveRecapPath(filePath: string): string {
   return path.join(RECAPS_DIR, filePath);
 }
 
+const FONT = 'DejaVu Sans, Liberation Sans, Arial, sans-serif';
+
 function headerSvg(text: string, width: number, height: number): string {
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
   <rect width="${width}" height="${height}" fill="#151515"/>
-  <text x="16" y="${height / 2 + 7}" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff">${escapeXml(truncate(text, 80))}</text>
-</svg>`;
-}
-
-function captionSvg(text: string, width: number, height: number): string {
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${width}" height="${height}" fill="#111111"/>
-  <text x="8" y="${height / 2 + 5}" font-family="Arial, sans-serif" font-size="14" fill="#ffffff">${escapeXml(truncate(text, 40))}</text>
+  <text x="16" y="${height / 2 + 7}" font-family="${FONT}" font-size="22" font-weight="bold" fill="#ffffff">${escapeXml(truncate(text, 80))}</text>
 </svg>`;
 }
 
 function badgeSvg(variantNumber: number): string {
   const label = escapeXml(`V${variantNumber}`);
-  return `<svg width="76" height="38" xmlns="http://www.w3.org/2000/svg">
-  <rect x="6" y="6" width="64" height="32" rx="8" fill="#111111" fill-opacity="0.85"/>
-  <text x="38" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#ffffff">${label}</text>
+  return `<svg width="96" height="48" xmlns="http://www.w3.org/2000/svg">
+  <rect x="8" y="8" width="84" height="40" rx="10" fill="#000000" fill-opacity="0.85"/>
+  <text x="50" y="38" text-anchor="middle" font-family="${FONT}" font-size="28" font-weight="bold" fill="#ffffff">${label}</text>
 </svg>`;
 }
 
 async function buildTile(recap: RecapPhoto): Promise<Buffer> {
   let base: Buffer;
-  let caption: string;
   try {
     const source = resolveRecapPath(recap.file_path);
     base = await sharp(source).resize(TILE_W, TILE_H, { fit: 'cover' }).toBuffer();
-    caption = path.basename(recap.file_path);
   } catch {
     base = await sharp({
       create: { width: TILE_W, height: TILE_H, channels: 3, background: '#555555' },
     })
       .jpeg()
       .toBuffer();
-    caption = 'gagal dimuat';
   }
   return sharp(base)
-    .extend({ bottom: CAPTION_H, background: '#111111' })
-    .composite([
-      { input: Buffer.from(badgeSvg(recap.variant_number)), top: 0, left: 0 },
-      { input: Buffer.from(captionSvg(caption, TILE_W, CAPTION_H)), top: TILE_H, left: 0 },
-    ])
+    .composite([{ input: Buffer.from(badgeSvg(recap.variant_number)), top: 0, left: 0 }])
     .jpeg({ quality: 80, mozjpeg: true })
     .toBuffer();
 }
@@ -100,9 +87,8 @@ async function renderGrid(photo: Photo, recaps: RecapPhoto[]): Promise<Buffer> {
   const n = recaps.length;
   const cols = columnsFor(n);
   const rows = Math.ceil(n / cols);
-  const tileH = TILE_H + CAPTION_H;
   const width = cols * TILE_W + (cols + 1) * GAP;
-  const gridH = rows * tileH + (rows - 1) * GAP;
+  const gridH = rows * TILE_H + (rows - 1) * GAP;
   const height = HEADER_H + GAP + gridH + GAP;
 
   const header = `#${photo.start_no || ''} • ${n} varian`;
@@ -113,7 +99,7 @@ async function renderGrid(photo: Photo, recaps: RecapPhoto[]): Promise<Buffer> {
   for (let i = 0; i < n; i++) {
     const r = Math.floor(i / cols);
     const c = i % cols;
-    const top = HEADER_H + GAP + r * (tileH + GAP);
+    const top = HEADER_H + GAP + r * (TILE_H + GAP);
     const left = GAP + c * (TILE_W + GAP);
     composites.push({ input: await buildTile(recaps[i]), top, left });
   }

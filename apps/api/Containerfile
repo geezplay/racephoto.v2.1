@@ -18,6 +18,9 @@ FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Fonts so sharp/libvips can render text labels on generated preview images.
+RUN apk add --no-cache fontconfig ttf-dejavu
+
 COPY package.json ./
 COPY packages/shared/package.json packages/shared/package.json
 COPY apps/api/package.json apps/api/package.json

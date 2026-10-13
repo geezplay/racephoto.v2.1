@@ -15,7 +15,6 @@ export default function ClassCatalog() {
     const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [zoomedImage, setZoomedImage] = useState<any>(null);
-    const [preview, setPreview] = useState<{ url: string | null; updatedAt: string | null }>({ url: null, updatedAt: null });
     const { items, addItem, getCount, getTotal } = useCart();
     const navigate = useNavigate();
 
@@ -28,10 +27,6 @@ export default function ClassCatalog() {
                 ]);
                 setPhotos(photosRes.data.photos || []);
                 setEvent(photosRes.data.event || null);
-                setPreview({
-                    url: photosRes.data.previewUrl || null,
-                    updatedAt: photosRes.data.previewUpdatedAt || null
-                });
                 setBrand(eventsRes.data.brand || {});
                 if (typeof window !== 'undefined') {
                     localStorage.setItem('racephoto_last_catalog', window.location.pathname);
@@ -741,18 +736,6 @@ export default function ClassCatalog() {
                         </p>
                     </div>
                 </div>
-
-                {/* Class Preview Banner */}
-                {preview.url && (
-                    <div style={{ width: '100%', maxWidth: '900px', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', background: '#0a0a0a', marginBottom: '1.5rem' }}>
-                        <img src={preview.url} loading="lazy" alt="Preview kelas" style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'cover' }} />
-                        {preview.updatedAt && (
-                            <p style={{ padding: '0.6rem 1rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>
-                                Preview kelas • diperbarui {new Date(preview.updatedAt).toLocaleDateString()}
-                            </p>
-                        )}
-                    </div>
-                )}
 
                 {/* Search */}
                 <div style={{ marginBottom: '2rem', maxWidth: '400px' }}>

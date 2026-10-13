@@ -872,6 +872,27 @@ router.post('/photos/:photoId/variant-preview', async (req: AuthRequest, res: Re
   }
 });
 
+router.post('/photos/variant-previews/regenerate-all', async (_req: AuthRequest, res: Response) => {
+  try {
+    const photos = await Photo.findAll({ attributes: ['id'] });
+    let regenerated = 0;
+    let failed = 0;
+    for (const photo of photos) {
+      try {
+        await regeneratePhotoPreview(photo.id);
+        regenerated++;
+      } catch (e) {
+        failed++;
+        console.warn(`Bulk regenerate failed for photo ${photo.id}:`, (e as Error).message);
+      }
+    }
+    res.json({ success: true, regenerated, failed, total: photos.length });
+  } catch (error) {
+    console.error('Bulk regenerate variant previews error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ==================== PENDING EVENTS ====================
 router.get('/pending-events', superAdmin, async (_req, res) => {
   try {

@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { Op } from 'sequelize';
+import { z } from 'zod';
 import { CATEGORY_LABELS, EventCategory } from '@racephoto/shared';
 import { sequelize } from '../config/db';
 import {
@@ -10,6 +11,7 @@ import {
   EventClass,
   Photo,
   RecapPhoto,
+  ClassPreview,
   Order,
   OrderItem,
   Sponsor,
@@ -17,6 +19,8 @@ import {
   WithdrawalRequest,
   SiteSetting,
 } from '../models';
+import { validate } from '../utils/validate';
+import { regenerateClassPreview, getClassPreview, listClassPreviews } from '../services/classPreviewService';
 import { AuthRequest, protect, admin, superAdmin } from '../middleware/auth';
 import {
   uploadEvent,
@@ -378,6 +382,22 @@ router.delete('/events/:id', async (req: AuthRequest, res: Response) => {
     await Photo.destroy({ where: { event_id: event.id }, transaction: t });
     await EventClass.destroy({ where: { event_id: event.id }, transaction: t });
 
+    const previews = await ClassPreview.findAll({ where: { event_id: event.id } });
+    for (const preview of previews) {
+      try {
+        if (preview.file_path) {
+          const previewFile = path.join(uploadsDir(), 'previews', preview.file_path);
+          if (fs.existsSync(previewFile)) {
+            fs.unlinkSync(previewFile);
+            deletedFiles++;
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to delete preview file: ${preview.file_path}`, (e as Error).message);
+      }
+    }
+    await ClassPreview.destroy({ where: { event_id: event.id }, transaction: t });
+
     if (event.image) {
       try {
         const eventImage = path.join(uploadsDir(), 'events', event.image);
@@ -466,6 +486,21 @@ router.delete('/classes/:id', async (_req: AuthRequest, res: Response) => {
     await Photo.destroy({ where: { event_id: eventClass.event_id, class: eventClass.name }, transaction: t });
     await eventClass.destroy({ transaction: t });
     await t.commit();
+
+    try {
+      const previews = await ClassPreview.findAll({
+        where: { event_id: eventClass.event_id, class_name: eventClass.name },
+      });
+      for (const preview of previews) {
+        if (preview.file_path) {
+          const previewFile = path.join(uploadsDir(), 'previews', preview.file_path);
+          if (fs.existsSync(previewFile)) fs.unlinkSync(previewFile);
+        }
+        await preview.destroy();
+      }
+    } catch (e) {
+      console.warn('Failed to delete class preview:', (e as Error).message);
+    }
 
     res.json({
       message: `Kelas "${eventClass.name}" berhasil dihapus beserta ${deletedPhotos} foto`,
@@ -561,6 +596,7 @@ router.post('/photos', uploadPhoto.single('photo'), async (req: AuthRequest, res
       url: `/uploads/photos/${req.file.filename}`,
       created_by: user.id,
     });
+    void regenerateClassPreview(photo.event_id, photo.class);
     res.status(201).json({ ...photo.toJSON(), _id: photo.id, photoUrl: photo.photoUrl });
   } catch (error) {
     console.error('Upload photo error:', error);
@@ -581,12 +617,18 @@ router.put('/photos/:id', uploadPhoto.single('photo'), async (req: AuthRequest, 
       startNo?: string;
       price?: string;
     };
+    const oldEventId = photo.event_id;
+    const oldClass = photo.class;
     if (eventId) photo.event_id = Number(eventId);
     if (photoClass) photo.class = photoClass;
     if (startNo) photo.start_no = startNo;
     if (price) photo.price = Number(price);
     if (req.file) photo.url = `/uploads/photos/${req.file.filename}`;
     await photo.save();
+    void regenerateClassPreview(photo.event_id, photo.class);
+    if (photo.event_id !== oldEventId || photo.class !== oldClass) {
+      void regenerateClassPreview(oldEventId, oldClass);
+    }
     res.json({ ...photo.toJSON(), _id: photo.id });
   } catch {
     res.status(500).json({ message: 'Server error' });
@@ -600,6 +642,9 @@ router.delete('/photos/:id', async (req: AuthRequest, res: Response) => {
     const photo = await Photo.findByPk(req.params.id, { include: [{ model: RecapPhoto, as: 'recaps' }] });
     if (!photo) return res.status(404).json({ message: 'Photo not found' });
     if (!user.isSuperAdmin() && photo.created_by !== user.id) return res.status(403).json({ message: 'Access denied' });
+
+    const previewEventId = photo.event_id;
+    const previewClass = photo.class;
 
     let deletedFiles = 0;
     await OrderItem.update({ photo_id: null }, { where: { photo_id: photo.id }, transaction: t });
@@ -629,6 +674,7 @@ router.delete('/photos/:id', async (req: AuthRequest, res: Response) => {
 
     await photo.destroy({ transaction: t });
     await t.commit();
+    void regenerateClassPreview(previewEventId, previewClass);
     res.json({ message: 'Foto berhasil dihapus', deletedFiles });
   } catch (error) {
     await t.rollback();
@@ -663,6 +709,7 @@ router.post('/photos/:photoId/recaps', uploadRecap.array('recaps', 50), async (r
       );
     }
     res.status(201).json(recaps);
+  void regenerateClassPreview(photo.event_id, photo.class);
   } catch (error) {
     console.error('Upload recaps error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -673,11 +720,12 @@ router.delete('/recaps/:id', async (req: AuthRequest, res: Response) => {
   try {
     const user = req.user as User;
     const recap = await RecapPhoto.findByPk(req.params.id, {
-      include: [{ model: Photo, as: 'photo', attributes: ['id', 'created_by'] }],
+      include: [{ model: Photo, as: 'photo', attributes: ['id', 'created_by', 'event_id', 'class'] }],
     });
     if (!recap) return res.status(404).json({ message: 'Recap not found' });
 
-    const ownerId = (recap as unknown as { photo?: { created_by: number } }).photo?.created_by;
+    const recapPhoto = (recap as unknown as { photo?: Photo }).photo;
+    const ownerId = recapPhoto?.created_by;
     if (!user.isSuperAdmin() && ownerId !== user.id) return res.status(403).json({ message: 'Access denied' });
 
     // Remove the physical file alongside the DB row.
@@ -689,8 +737,51 @@ router.delete('/recaps/:id', async (req: AuthRequest, res: Response) => {
     }
 
     await recap.destroy();
+    if (recapPhoto) void regenerateClassPreview(recapPhoto.event_id, recapPhoto.class);
     res.json({ message: 'Recap deleted' });
   } catch {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ==================== CLASS PREVIEWS ====================
+const classPreviewSchema = z.object({
+  eventId: z.coerce.number().int().positive(),
+  className: z.string().min(1),
+});
+
+const serializeClassPreview = (preview: ClassPreview) => ({
+  id: preview.id,
+  eventId: preview.event_id,
+  className: preview.class_name,
+  previewUrl: preview.previewUrl,
+  photoCount: preview.photo_count,
+  previewUpdatedAt: preview.generated_at,
+  failedAt: preview.failed_at,
+  error: preview.error,
+});
+
+router.get('/class-previews', async (req: AuthRequest, res: Response) => {
+  try {
+    const eventIdRaw = req.query.eventId;
+    const eventId = eventIdRaw !== undefined ? Number(eventIdRaw) : undefined;
+    const previews = await listClassPreviews(Number.isFinite(eventId) ? eventId : undefined);
+    res.json(previews.map(serializeClassPreview));
+  } catch (error) {
+    console.error('List class previews error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/class-previews/regenerate', async (req: AuthRequest, res: Response) => {
+  try {
+    const parsed = validate(classPreviewSchema, req.body, res);
+    if (!parsed) return;
+    await regenerateClassPreview(parsed.eventId, parsed.className);
+    const preview = await getClassPreview(parsed.eventId, parsed.className);
+    res.json({ success: true, preview: preview ? serializeClassPreview(preview) : null });
+  } catch (error) {
+    console.error('Regenerate class preview error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

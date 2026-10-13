@@ -100,6 +100,10 @@ export const deletePhoto = (id: string | number | undefined) => api.delete(`/adm
 export const uploadRecaps = (photoId: string | number | undefined, formData: FormData) =>
   api.post(`/admin/photos/${photoId}/recaps`, formData, { timeout: 300000 });
 export const deleteRecap = (id: number) => api.delete(`/admin/recaps/${id}`);
+export const regenerateClassPreview = (eventId: number, className: string) =>
+  api.post('/admin/class-previews/regenerate', { eventId, className });
+export const getClassPreviews = (eventId?: number) =>
+  api.get('/admin/class-previews', { params: eventId ? { eventId } : {} });
 
 // Admin - Pending Events
 export const getPendingEvents = () => api.get('/admin/pending-events');

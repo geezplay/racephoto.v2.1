@@ -2,7 +2,7 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { Op } from 'sequelize';
-import { Photo, Event, RecapPhoto, Order, OrderItem } from '../models';
+import { Photo, Event, RecapPhoto, Order, OrderItem, ClassPreview } from '../models';
 import { AuthRequest, optionalAuth, protect, admin } from '../middleware/auth';
 import { hashToken } from '../utils/token';
 
@@ -72,7 +72,8 @@ router.get('/event/:eventId/class/:className', async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    const where: Record<string, unknown> = { event_id: eventId, class: decodeURIComponent(className) };
+    const decodedClass = decodeURIComponent(className);
+    const where: Record<string, unknown> = { event_id: eventId, class: decodedClass };
     if (startNo) where.start_no = { [Op.iLike]: `%${startNo}%` };
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -86,12 +87,14 @@ router.get('/event/:eventId/class/:className', async (req, res) => {
     });
 
     const allPhotos = await Photo.findAll({
-      where: { event_id: eventId, class: decodeURIComponent(className) },
+      where: { event_id: eventId, class: decodedClass },
       attributes: ['start_no'],
       group: ['start_no'],
       order: [['start_no', 'ASC']],
     });
     const startNumbers = allPhotos.map((p) => p.start_no);
+
+    const preview = await ClassPreview.findOne({ where: { event_id: eventId, class_name: decodedClass } });
 
     const photosWithDetails = photos.map((p) => {
       const recaps = (p as unknown as { recaps?: RecapPhoto[] }).recaps;
@@ -105,7 +108,13 @@ router.get('/event/:eventId/class/:className', async (req, res) => {
       };
     });
 
-    res.json({ photos: photosWithDetails, event: { ...event.toJSON(), imageUrl: event.imageUrl }, startNumbers });
+    res.json({
+      photos: photosWithDetails,
+      event: { ...event.toJSON(), imageUrl: event.imageUrl },
+      startNumbers,
+      previewUrl: preview?.previewUrl || null,
+      previewUpdatedAt: preview?.generated_at || null,
+    });
   } catch (error) {
     console.error('Get photos error:', error);
     res.status(500).json({ message: 'Server error' });

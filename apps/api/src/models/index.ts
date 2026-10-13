@@ -3,6 +3,7 @@ import { Event } from './Event';
 import { EventClass } from './EventClass';
 import { Photo } from './Photo';
 import { RecapPhoto } from './RecapPhoto';
+import { ClassPreview } from './ClassPreview';
 import { Order } from './Order';
 import { OrderItem } from './OrderItem';
 import { Sponsor } from './Sponsor';
@@ -31,6 +32,10 @@ Photo.belongsTo(User, { foreignKey: 'created_by', as: 'creator' });
 Photo.hasMany(RecapPhoto, { foreignKey: 'photo_id', as: 'recaps' });
 RecapPhoto.belongsTo(Photo, { foreignKey: 'photo_id', as: 'photo' });
 
+// Event -> ClassPreview
+Event.hasMany(ClassPreview, { foreignKey: 'event_id', as: 'classPreviews' });
+ClassPreview.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
+
 // User -> Order (buyer)
 User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
 Order.belongsTo(User, { foreignKey: 'user_id', as: 'buyer' });
@@ -57,6 +62,7 @@ export {
   EventClass,
   Photo,
   RecapPhoto,
+  ClassPreview,
   Order,
   OrderItem,
   Sponsor,

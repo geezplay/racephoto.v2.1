@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
 import { useAuth } from '../../context/AuthContext';
 import {
-    getAdminEvents, getAdminPhotos, deleteEvent, deletePhoto, deleteClass, createClass
+    getAdminEvents, getAdminPhotos, deleteEvent, deletePhoto, deleteClass, createClass,
+    getClassPreviews, regenerateClassPreview
 } from '../../services/api';
 import {
     Calendar, Plus, Edit, Trash2, AlertTriangle, Image, ImageOff,
-    ChevronRight, ChevronDown, FolderOpen, Search, ArrowLeft, Layers, Eye, Check, Circle
+    ChevronRight, ChevronDown, FolderOpen, Search, ArrowLeft, Layers, Eye, Check, Circle, RefreshCw
 } from 'lucide-react';
 
 export default function EventManager() {
@@ -22,10 +23,29 @@ export default function EventManager() {
     const [deleteModal, setDeleteModal] = useState<any>({ show: false, type: '', id: null, name: '' });
     const [newClassName, setNewClassName] = useState('');
     const [addingClass, setAddingClass] = useState(false);
+    const [classPreviews, setClassPreviews] = useState<Record<string, { previewUrl: string | null; photoCount: number; failedAt: string | null }>>({});
+    const [regenLoading, setRegenLoading] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         fetchData();
     }, []);
+
+    const loadClassPreviews = async (eventId: number) => {
+        try {
+            const res = await getClassPreviews(eventId);
+            const map: Record<string, { previewUrl: string | null; photoCount: number; failedAt: string | null }> = {};
+            (res.data || []).forEach((p: any) => {
+                map[p.className] = {
+                    previewUrl: p.previewUrl,
+                    photoCount: p.photoCount,
+                    failedAt: p.failedAt
+                };
+            });
+            setClassPreviews(map);
+        } catch (error: any) {
+            console.error('Error fetching class previews:', error);
+        }
+    };
 
     const fetchData = async () => {
         try {
@@ -46,6 +66,16 @@ export default function EventManager() {
     const selectedEvent = useMemo(() => {
         return events.find(e => (e.id || e._id) === selectedEventId);
     }, [events, selectedEventId]);
+
+    useEffect(() => {
+        if (!selectedEvent) {
+            setClassPreviews({});
+            return;
+        }
+        const eventId = Number(selectedEvent.id || selectedEvent._id);
+        if (!Number.isFinite(eventId)) return;
+        loadClassPreviews(eventId);
+    }, [selectedEvent]);
 
     // Get photos for the selected event
     const eventPhotos = useMemo(() => {
@@ -92,6 +122,18 @@ export default function EventManager() {
 
     const toggleClass = (className: any) => {
         setExpandedClasses((prev: any) => ({ ...prev, [className]: !prev[className] }));
+    };
+
+    const handleRegenerate = async (eventId: any, className: string) => {
+        setRegenLoading((prev) => ({ ...prev, [className]: true }));
+        try {
+            await regenerateClassPreview(Number(eventId), className);
+            await loadClassPreviews(Number(eventId));
+        } catch (error: any) {
+            console.error('Regenerate preview error:', error);
+        } finally {
+            setRegenLoading((prev) => ({ ...prev, [className]: false }));
+        }
     };
 
     const expandAllClasses = () => {
@@ -492,6 +534,31 @@ export default function EventManager() {
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
+                                            {(() => {
+                                                const preview = classPreviews[cls.name];
+                                                const failed = !!preview?.failedAt;
+                                                const hasPreview = !!preview?.previewUrl;
+                                                const color = failed ? '#ef4444' : hasPreview ? '#39FF14' : 'rgba(255,255,255,0.4)';
+                                                const bg = failed ? 'rgba(239,68,68,0.15)' : hasPreview ? 'rgba(57,255,20,0.15)' : 'rgba(255,255,255,0.06)';
+                                                const border = failed ? 'rgba(239,68,68,0.3)' : hasPreview ? 'rgba(57,255,20,0.3)' : 'rgba(255,255,255,0.1)';
+                                                const label = failed ? 'Gagal' : hasPreview ? 'Ada' : 'Belum ada';
+                                                return (
+                                                    <span style={{
+                                                        fontSize: '9px', padding: '0.25rem 0.5rem', borderRadius: '6px',
+                                                        fontWeight: '800', textTransform: 'uppercase', color, background: bg,
+                                                        border: `1px solid ${border}`, whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {label}{hasPreview && (preview?.photoCount || 0) > 0 ? ` • ${preview.photoCount} foto` : ''}
+                                                    </span>
+                                                );
+                                            })()}
+                                            <button onClick={() => handleRegenerate(selectedEventId, cls.name)} disabled={regenLoading[cls.name]} style={{
+                                                padding: '0.35rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px',
+                                                border: 'none', color: regenLoading[cls.name] ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.4)',
+                                                cursor: regenLoading[cls.name] ? 'wait' : 'pointer', display: 'flex'
+                                            }} title="Regenerate preview">
+                                                <RefreshCw size={14} style={regenLoading[cls.name] ? { animation: 'spin 1s linear infinite' } : undefined} />
+                                            </button>
                                             <Link to={`/event/${selectedEventId}/class/${encodeURIComponent(cls.name)}`} target="_blank" style={{
                                                 padding: '0.35rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px',
                                                 color: 'rgba(255,255,255,0.4)', textDecoration: 'none', display: 'flex'

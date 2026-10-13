@@ -2,7 +2,7 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { Op } from 'sequelize';
-import { Photo, Event, RecapPhoto, Order, OrderItem, ClassPreview } from '../models';
+import { Photo, Event, RecapPhoto, Order, OrderItem, ClassPreview, PhotoPreview } from '../models';
 import { AuthRequest, optionalAuth, protect, admin } from '../middleware/auth';
 import { hashToken } from '../utils/token';
 
@@ -30,6 +30,7 @@ router.get('/', async (req, res) => {
       include: [
         { model: Event, as: 'event', attributes: ['id', 'name', 'date', 'status'] },
         { model: RecapPhoto, as: 'recaps' },
+        { model: PhotoPreview, as: 'variantPreview' },
       ],
       limit: parseInt(limit),
       offset,
@@ -46,6 +47,7 @@ router.get('/', async (req, res) => {
         price: Number(p.price),
         photoUrl: p.photoUrl,
         recapCount: recaps?.length || 0,
+        variantPreviewUrl: (p as any).variantPreview?.previewUrl || null,
         event: event ? { id: event.id, name: event.name, date: event.date, status: event.status } : null,
         createdAt: p.createdAt,
       };
@@ -80,7 +82,7 @@ router.get('/event/:eventId/class/:className', async (req, res) => {
 
     const photos = await Photo.findAll({
       where,
-      include: [{ model: RecapPhoto, as: 'recaps' }],
+      include: [{ model: RecapPhoto, as: 'recaps' }, { model: PhotoPreview, as: 'variantPreview' }],
       limit: parseInt(limit),
       offset,
       order: [['start_no', 'ASC']],
@@ -104,6 +106,7 @@ router.get('/event/:eventId/class/:className', async (req, res) => {
         price: Number(p.price),
         photoUrl: p.photoUrl,
         recapCount: recaps?.length || 0,
+        variantPreviewUrl: (p as any).variantPreview?.previewUrl || null,
         eventId: { name: event.name },
       };
     });
@@ -128,6 +131,7 @@ router.get('/:id', async (req, res) => {
       include: [
         { model: Event, as: 'event' },
         { model: RecapPhoto, as: 'recaps' },
+        { model: PhotoPreview, as: 'variantPreview' },
       ],
     });
 
@@ -148,6 +152,7 @@ router.get('/:id', async (req, res) => {
       photoUrl: photo.photoUrl,
       recapCount: recaps.length,
       recaps,
+      variantPreviewUrl: (photo as any).variantPreview?.previewUrl || null,
     });
   } catch (error) {
     console.error('Get photo error:', error);

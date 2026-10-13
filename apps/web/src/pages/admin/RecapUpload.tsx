@@ -1,8 +1,8 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
-import { getAdminPhoto, uploadRecaps, deleteRecap } from '../../services/api';
-import { ArrowLeft, Trash2, Download, Plus, X, Hourglass, Upload } from 'lucide-react';
+import { getAdminPhoto, uploadRecaps, deleteRecap, generateVariantPreview } from '../../services/api';
+import { ArrowLeft, Trash2, Download, Plus, X, Hourglass, Upload, Image as ImageIcon } from 'lucide-react';
 
 export default function RecapUpload() {
     const { id } = useParams();
@@ -82,7 +82,12 @@ export default function RecapUpload() {
 
             await uploadRecaps(id, formData);
             setUploads([]);
-            fetchPhoto(); // Refresh to show new recaps
+            try {
+                await generateVariantPreview(id);
+            } catch (error: any) {
+                console.error('Error generating variant preview:', error);
+            }
+            await fetchPhoto();
         } catch (error: any) {
             console.error('Error uploading recaps:', error);
             alert('Gagal mengupload recap');
@@ -161,6 +166,35 @@ export default function RecapUpload() {
                         {photo.recaps?.length || 0} recap sudah diupload
                     </p>
                 </div>
+            </div>
+
+            {/* Auto-generated Variant Preview */}
+            <div style={{
+                background: '#0a0a0a',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                border: '1px solid rgba(57,255,20,0.2)',
+                marginBottom: '2rem'
+            }}>
+                <h3 style={{ fontSize: '0.875rem', fontWeight: '900', textTransform: 'uppercase', color: '#39FF14', letterSpacing: '0.1em', marginBottom: '1rem' }}>
+                    <ImageIcon size={16} /> Preview Otomatis (dari varian)
+                </h3>
+                {photo.variantPreviewUrl ? (
+                    <img
+                        src={photo.variantPreviewUrl}
+                        alt="Preview otomatis"
+                        style={{
+                            width: '100%',
+                            maxWidth: '600px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(255,255,255,0.1)'
+                        }}
+                    />
+                ) : (
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.875rem', margin: 0 }}>
+                        Preview akan dibuat otomatis setelah varian diunggah
+                    </p>
+                )}
             </div>
 
             {/* Existing Recaps */}
@@ -339,7 +373,7 @@ export default function RecapUpload() {
                                 opacity: isSubmitting ? 0.5 : 1
                             }}
                         >
-                            {isSubmitting ? (<><Hourglass size={16} /> Mengupload...</>) : (<><Upload size={16} /> Upload Semua</>)}
+                            {isSubmitting ? (<><Hourglass size={16} /> Mengupload...</>) : (<><Upload size={16} /> Selesai dan Buat Preview</>)}
                         </button>
                     </div>
                 )}

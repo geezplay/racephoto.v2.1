@@ -12,6 +12,7 @@ import {
   Photo,
   RecapPhoto,
   ClassPreview,
+  PhotoPreview,
   Order,
   OrderItem,
   Sponsor,
@@ -21,6 +22,7 @@ import {
 } from '../models';
 import { validate } from '../utils/validate';
 import { regenerateClassPreview, getClassPreview, listClassPreviews } from '../services/classPreviewService';
+import { regeneratePhotoPreview, getPhotoPreview } from '../services/photoPreviewService';
 import { AuthRequest, protect, admin, superAdmin } from '../middleware/auth';
 import {
   uploadEvent,
@@ -351,9 +353,11 @@ router.delete('/events/:id', async (req: AuthRequest, res: Response) => {
     let deletedPhotos = 0;
     let deletedRecaps = 0;
     let deletedFiles = 0;
+    const photoIds: number[] = [];
 
     for (const photo of photos) {
       await OrderItem.update({ photo_id: null }, { where: { photo_id: photo.id }, transaction: t });
+      photoIds.push(photo.id);
       for (const recap of recapsOf(photo)) {
         try {
           const recapFile = path.join(uploadsDir(), 'recaps', recap.file_path);
@@ -397,6 +401,24 @@ router.delete('/events/:id', async (req: AuthRequest, res: Response) => {
       }
     }
     await ClassPreview.destroy({ where: { event_id: event.id }, transaction: t });
+
+    if (photoIds.length > 0) {
+      const photoPreviews = await PhotoPreview.findAll({ where: { photo_id: { [Op.in]: photoIds } } });
+      for (const preview of photoPreviews) {
+        try {
+          if (preview.file_path) {
+            const previewFile = path.join(uploadsDir(), 'previews', preview.file_path);
+            if (fs.existsSync(previewFile)) {
+              fs.unlinkSync(previewFile);
+              deletedFiles++;
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to delete preview file: ${preview.file_path}`, (e as Error).message);
+        }
+      }
+      await PhotoPreview.destroy({ where: { photo_id: { [Op.in]: photoIds } }, transaction: t });
+    }
 
     if (event.image) {
       try {
@@ -455,9 +477,11 @@ router.delete('/classes/:id', async (_req: AuthRequest, res: Response) => {
     let deletedPhotos = 0;
     let deletedRecaps = 0;
     let deletedFiles = 0;
+    const photoIds: number[] = [];
 
     for (const photo of photos) {
       await OrderItem.update({ photo_id: null }, { where: { photo_id: photo.id }, transaction: t });
+      photoIds.push(photo.id);
       for (const recap of recapsOf(photo)) {
         try {
           const recapFile = path.join(uploadsDir(), 'recaps', recap.file_path);
@@ -497,6 +521,17 @@ router.delete('/classes/:id', async (_req: AuthRequest, res: Response) => {
           if (fs.existsSync(previewFile)) fs.unlinkSync(previewFile);
         }
         await preview.destroy();
+      }
+
+      if (photoIds.length > 0) {
+        const photoPreviews = await PhotoPreview.findAll({ where: { photo_id: { [Op.in]: photoIds } } });
+        for (const preview of photoPreviews) {
+          if (preview.file_path) {
+            const previewFile = path.join(uploadsDir(), 'previews', preview.file_path);
+            if (fs.existsSync(previewFile)) fs.unlinkSync(previewFile);
+          }
+          await preview.destroy();
+        }
       }
     } catch (e) {
       console.warn('Failed to delete class preview:', (e as Error).message);
@@ -552,6 +587,7 @@ router.get('/photos/:id', async (req: AuthRequest, res: Response) => {
       include: [
         { model: Event, as: 'event' },
         { model: RecapPhoto, as: 'recaps' },
+        { model: PhotoPreview, as: 'variantPreview' },
       ],
     });
     if (!photo) return res.status(404).json({ message: 'Photo not found' });
@@ -571,6 +607,7 @@ router.get('/photos/:id', async (req: AuthRequest, res: Response) => {
       price: Number(photo.price),
       photoUrl: photo.photoUrl,
       recaps: recapsWithUrls,
+      variantPreviewUrl: (photo as any).variantPreview?.previewUrl || null,
     });
   } catch {
     res.status(500).json({ message: 'Server error' });
@@ -672,6 +709,20 @@ router.delete('/photos/:id', async (req: AuthRequest, res: Response) => {
       console.warn(`Failed to delete photo file: ${photo.url}`, (e as Error).message);
     }
 
+    const photoPreview = await PhotoPreview.findOne({ where: { photo_id: photo.id } });
+    if (photoPreview?.file_path) {
+      try {
+        const previewFile = path.join(uploadsDir(), 'previews', photoPreview.file_path);
+        if (fs.existsSync(previewFile)) {
+          fs.unlinkSync(previewFile);
+          deletedFiles++;
+        }
+      } catch (e) {
+        console.warn(`Failed to delete preview file: ${photoPreview.file_path}`, (e as Error).message);
+      }
+    }
+    await PhotoPreview.destroy({ where: { photo_id: photo.id }, transaction: t });
+
     await photo.destroy({ transaction: t });
     await t.commit();
     void regenerateClassPreview(previewEventId, previewClass);
@@ -709,7 +760,8 @@ router.post('/photos/:photoId/recaps', uploadRecap.array('recaps', 50), async (r
       );
     }
     res.status(201).json(recaps);
-  void regenerateClassPreview(photo.event_id, photo.class);
+    void regenerateClassPreview(photo.event_id, photo.class);
+    void regeneratePhotoPreview(Number(req.params.photoId));
   } catch (error) {
     console.error('Upload recaps error:', error);
     res.status(500).json({ message: 'Server error' });
@@ -738,6 +790,7 @@ router.delete('/recaps/:id', async (req: AuthRequest, res: Response) => {
 
     await recap.destroy();
     if (recapPhoto) void regenerateClassPreview(recapPhoto.event_id, recapPhoto.class);
+    void regeneratePhotoPreview(recap.photo_id);
     res.json({ message: 'Recap deleted' });
   } catch {
     res.status(500).json({ message: 'Server error' });
@@ -782,6 +835,41 @@ router.post('/class-previews/regenerate', async (req: AuthRequest, res: Response
     res.json({ success: true, preview: preview ? serializeClassPreview(preview) : null });
   } catch (error) {
     console.error('Regenerate class preview error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+const serializeVariantPreview = (preview: PhotoPreview) => ({
+  id: preview.id,
+  photoId: preview.photo_id,
+  previewUrl: preview.previewUrl,
+  variantCount: preview.variant_count,
+  previewUpdatedAt: preview.generated_at,
+  failedAt: preview.failed_at,
+  error: preview.error,
+});
+
+router.get('/photos/:photoId/variant-preview', async (req: AuthRequest, res: Response) => {
+  try {
+    const preview = await getPhotoPreview(Number(req.params.photoId));
+    res.json({ preview: preview ? serializeVariantPreview(preview) : null });
+  } catch (error) {
+    console.error('Get variant preview error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/photos/:photoId/variant-preview', async (req: AuthRequest, res: Response) => {
+  try {
+    const photoId = Number(req.params.photoId);
+    if (!Number.isFinite(photoId) || photoId <= 0) {
+      return res.status(400).json({ message: 'Invalid photoId' });
+    }
+    await regeneratePhotoPreview(photoId);
+    const preview = await getPhotoPreview(photoId);
+    res.json({ success: true, preview: preview ? serializeVariantPreview(preview) : null });
+  } catch (error) {
+    console.error('Regenerate variant preview error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

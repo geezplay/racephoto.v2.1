@@ -104,6 +104,10 @@ export const regenerateClassPreview = (eventId: number, className: string) =>
   api.post('/admin/class-previews/regenerate', { eventId, className });
 export const getClassPreviews = (eventId?: number) =>
   api.get('/admin/class-previews', { params: eventId ? { eventId } : {} });
+export const generateVariantPreview = (photoId: string | number | undefined) =>
+  api.post(`/admin/photos/${photoId}/variant-preview`);
+export const getVariantPreview = (photoId: string | number | undefined) =>
+  api.get(`/admin/photos/${photoId}/variant-preview`);
 
 // Admin - Pending Events
 export const getPendingEvents = () => api.get('/admin/pending-events');

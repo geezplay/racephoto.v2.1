@@ -350,11 +350,11 @@ export default function ClassCatalog() {
                                     {/* Main Preview Image — Click to Zoom */}
                                     <div style={{ position: 'relative', background: '#000' }}>
                                         <img
-                                            src={(getVariants(selectedPhoto)[selectedVariantIndex]?.url) || selectedPhoto.photoUrl || selectedPhoto.url}
+                                            src={(getVariants(selectedPhoto)[selectedVariantIndex]?.url) || selectedPhoto.variantPreviewUrl || selectedPhoto.photoUrl || selectedPhoto.url}
                                             alt={`Photo #${selectedPhoto.start_no || selectedPhoto.startNo}`}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                setZoomedImage((getVariants(selectedPhoto)[selectedVariantIndex]?.url) || selectedPhoto.photoUrl || selectedPhoto.url);
+                                                setZoomedImage((getVariants(selectedPhoto)[selectedVariantIndex]?.url) || selectedPhoto.variantPreviewUrl || selectedPhoto.photoUrl || selectedPhoto.url);
                                             }}
                                             style={{
                                                 width: '100%',
@@ -821,7 +821,7 @@ export default function ClassCatalog() {
                                 {/* Main Photo Preview Only */}
                                 <div style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden' }}>
                                     <img
-                                        src={photo.photoUrl || photo.url}
+                                        src={photo.variantPreviewUrl || photo.photoUrl || photo.url}
                                         alt={`Start #${photo.start_no || photo.startNo}`}
                                         loading="lazy"
                                         style={{

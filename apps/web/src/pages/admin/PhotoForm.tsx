@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import AdminLayout from '../../components/AdminLayout';
-import { getAdminPhoto, uploadPhoto, updatePhoto, getAdminEvents, getAdminEvent, uploadRecaps, deleteRecap } from '../../services/api';
+import { getAdminPhoto, uploadPhoto, updatePhoto, getAdminEvents, getAdminEvent, uploadRecaps, deleteRecap, generateVariantPreview } from '../../services/api';
 import { AlertTriangle, ArrowLeft, Camera, Calendar, Flag, Hash, Wallet, Image as ImageIcon, Hourglass, Save, Upload, CheckCircle2, BarChart3, Check, X, Lightbulb } from 'lucide-react';
 
 export default function PhotoForm() {
@@ -21,6 +21,7 @@ export default function PhotoForm() {
         image: null
     });
     const [preview, setPreview] = useState<any>(null);
+    const [variantPreviewUrl, setVariantPreviewUrl] = useState<any>(null);
 
     // Recap photos state
     const [recaps, setRecaps] = useState<any[]>([]);
@@ -92,6 +93,7 @@ export default function PhotoForm() {
             if (photo.photoUrl || photo.url) {
                 setPreview(photo.photoUrl || photo.url);
             }
+            setVariantPreviewUrl(photo.variantPreviewUrl || null);
             // Load existing recaps - prepend API URL to relative paths
             if (photo.recaps) {
                 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -129,7 +131,7 @@ export default function PhotoForm() {
             data.append('class', formData.class_name);
             data.append('startNo', formData.start_no);
             data.append('price', formData.price);
-            if (formData.image) {
+            if (!isEdit && formData.image) {
                 data.append('photo', formData.image);
             }
 
@@ -203,6 +205,15 @@ export default function PhotoForm() {
         const fileInput = document.getElementById('recap-files');
         if (fileInput) (fileInput as any).value = '';
         setUploadingRecaps(false);
+
+        if (successCount > 0) {
+            try {
+                await generateVariantPreview(id);
+                await fetchPhoto();
+            } catch (error: any) {
+                console.error('Error generating variant preview:', error);
+            }
+        }
     };
 
     const handleUploadRecaps = async () => {
@@ -529,36 +540,75 @@ export default function PhotoForm() {
                                     letterSpacing: '0.1em',
                                     marginBottom: '0.5rem'
                                 }}>
-                                    <ImageIcon size={12} /> Foto Utama
+                                    <ImageIcon size={12} /> {isEdit ? 'Preview Otomatis (dari varian)' : 'Foto Utama'}
                                 </label>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageChange}
-                                    required={!isEdit}
-                                    style={{
-                                        width: '100%',
-                                        background: 'rgba(0,0,0,0.5)',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        borderRadius: '12px',
-                                        padding: '1rem',
-                                        color: 'white',
-                                        fontSize: '0.875rem',
-                                        boxSizing: 'border-box' as const
-                                    }}
-                                />
-                                {preview && (
-                                    <img
-                                        src={preview}
-                                        alt="Preview"
-                                        style={{
-                                            marginTop: '1rem',
-                                            width: '100%',
-                                            maxHeight: '200px',
-                                            objectFit: 'cover',
+                                {isEdit ? (
+                                    variantPreviewUrl ? (
+                                        <>
+                                            <img
+                                                src={variantPreviewUrl}
+                                                alt="Preview otomatis"
+                                                style={{
+                                                    width: '100%',
+                                                    maxHeight: '200px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid rgba(255,255,255,0.1)'
+                                                }}
+                                            />
+                                            <p style={{
+                                                marginTop: '0.5rem',
+                                                fontSize: '0.75rem',
+                                                color: 'rgba(255,255,255,0.4)',
+                                                fontStyle: 'italic'
+                                            }}>
+                                                Preview ini di-generate otomatis dari varian foto
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <div style={{
+                                            padding: '2rem',
+                                            textAlign: 'center',
+                                            color: 'rgba(255,255,255,0.3)',
+                                            background: 'rgba(0,0,0,0.3)',
                                             borderRadius: '12px'
-                                        }}
-                                    />
+                                        }}>
+                                            <div style={{ marginBottom: '0.5rem', opacity: 0.5 }}><ImageIcon size={32} /></div>
+                                            <p style={{ fontSize: '0.875rem' }}>Preview akan dibuat otomatis setelah varian diunggah</p>
+                                        </div>
+                                    )
+                                ) : (
+                                    <>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                            required
+                                            style={{
+                                                width: '100%',
+                                                background: 'rgba(0,0,0,0.5)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '12px',
+                                                padding: '1rem',
+                                                color: 'white',
+                                                fontSize: '0.875rem',
+                                                boxSizing: 'border-box' as const
+                                            }}
+                                        />
+                                        {preview && (
+                                            <img
+                                                src={preview}
+                                                alt="Preview"
+                                                style={{
+                                                    marginTop: '1rem',
+                                                    width: '100%',
+                                                    maxHeight: '200px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '12px'
+                                                }}
+                                            />
+                                        )}
+                                    </>
                                 )}
                             </div>
 

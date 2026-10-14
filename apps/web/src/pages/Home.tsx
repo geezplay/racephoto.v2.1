@@ -2,7 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { getEvents, getUpcomingEvents } from '../services/api';
-import { ShoppingCart, User, Menu, X, Camera, Calendar, Info, Briefcase, Home as HomeIcon, Zap, Phone, Tag, CreditCard, Users, ChevronDown, Search, MapPin, ArrowRight, Clock, Link2, Flag, Wallet, Check, Target, Sparkles, MessageCircle, Smartphone, Mail, CalendarDays, Download, Minus, Plus } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Camera, Calendar, Info, Briefcase, Home as HomeIcon, Zap, Phone, Tag, CreditCard, Users, ChevronDown, Search, MapPin, ArrowRight, Clock, Link2, Flag, Check, Target, Sparkles, Smartphone, Mail, CalendarDays, Download, Minus, Plus } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<string, string> = {
     development: 'Development By',
@@ -1157,7 +1157,7 @@ export default function Home() {
                             letterSpacing: '0.2em',
                             marginBottom: '0.5rem'
                         }}>
-                            <Wallet size={12} /> Produk & Layanan
+                            <span style={{ fontSize: '12px', lineHeight: 1 }}>✦</span> Produk & Layanan
                         </p>
                         <h2 style={{
                             fontSize: 'clamp(1.5rem, 4vw, 2.25rem)',
@@ -1907,7 +1907,7 @@ export default function Home() {
                             letterSpacing: '0.2em',
                             marginBottom: '0.5rem'
                         }}>
-                            <MessageCircle size={12} /> Bantuan & Dukungan
+                            <span style={{ fontSize: '12px', lineHeight: 1 }}>✉</span> Bantuan & Dukungan
                         </p>
                         <h2 style={{
                             fontSize: 'clamp(1.5rem, 3vw, 2rem)',

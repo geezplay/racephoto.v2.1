@@ -77,7 +77,7 @@ export const validateDiscountSchema = z.object({
     z.object({
       photoId: z.coerce.number().int().positive(),
       price: z.coerce.number().int().nonnegative(),
-      eventId: z.coerce.number().int().positive(),
+      eventId: z.coerce.number().int().positive().optional().nullable(),
     }),
   ),
 });

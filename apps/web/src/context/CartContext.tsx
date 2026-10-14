@@ -23,7 +23,7 @@ interface CartItemInput {
   startNo?: string;
   start_no?: string;
   eventName?: string;
-  eventId?: { name?: string };
+  eventId?: number | { name?: string };
   class?: string;
   className?: string;
   recapCount?: number;
@@ -79,6 +79,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         newItem = {
           photoId: Number(itemOrPhoto.id),
           variant: itemOrPhoto.variant,
+          eventId: typeof itemOrPhoto.eventId === 'number' ? itemOrPhoto.eventId : undefined,
           price: parseFloat(String(itemOrPhoto.price)) || 0,
           photoUrl: itemOrPhoto.url || itemOrPhoto.photoUrl || '',
           startNo: itemOrPhoto.startNo || '',
@@ -90,10 +91,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         newItem = {
           photoId: Number(itemOrPhoto._id || itemOrPhoto.id),
           variant: variant || 1,
+          eventId: typeof itemOrPhoto.eventId === 'number' ? itemOrPhoto.eventId : undefined,
           price: parseFloat(String(itemOrPhoto.price)) || 0,
           photoUrl: itemOrPhoto.url || itemOrPhoto.photoUrl || '',
           startNo: itemOrPhoto.startNo || itemOrPhoto.start_no || '',
-          eventName: itemOrPhoto.eventId?.name || itemOrPhoto.eventName || 'Unknown Event',
+          eventName: typeof itemOrPhoto.eventId === 'object' ? itemOrPhoto.eventId?.name || 'Unknown Event' : itemOrPhoto.eventName || 'Unknown Event',
           className: itemOrPhoto.class || itemOrPhoto.className,
         };
       }

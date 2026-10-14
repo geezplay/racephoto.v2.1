@@ -3,6 +3,7 @@ import { discountSchema, validateDiscountSchema } from '@racephoto/shared';
 import { DiscountCode } from '../models';
 import { protect, superAdmin } from '../middleware/auth';
 import { validate } from '../utils/validate';
+import { computeDiscount, checkDiscountValidity, endOfDay } from '../utils/discount';
 
 const router = Router();
 
@@ -14,34 +15,19 @@ router.post('/validate', async (req, res) => {
   try {
     const discount = await DiscountCode.findOne({ where: { code: data.code.toUpperCase().trim() } });
     if (!discount) return res.status(404).json({ message: 'Kode diskon tidak ditemukan' });
-    if (!discount.is_active) return res.status(400).json({ message: 'Kode diskon sudah tidak aktif' });
-    if (discount.valid_until && new Date(discount.valid_until) < new Date()) {
-      return res.status(400).json({ message: 'Kode diskon sudah kadaluarsa' });
-    }
-    if (discount.usage_limit && discount.used_count >= discount.usage_limit) {
-      return res.status(400).json({ message: 'Kode diskon sudah mencapai batas penggunaan' });
-    }
 
-    const allowedEventIds = discount.event_ids;
-    let eligibleItems = data.items;
+    const validity = checkDiscountValidity(discount);
+    if (!validity.ok) return res.status(400).json({ message: validity.message });
 
-    if (allowedEventIds && allowedEventIds.length > 0) {
-      eligibleItems = eligibleItems.filter((item) => allowedEventIds.includes(Number(item.eventId)));
-      if (eligibleItems.length === 0) {
-        return res.status(400).json({ message: 'Kode diskon tidak berlaku untuk event di keranjang Anda' });
-      }
+    const { eligibleItems, discountAmount } = computeDiscount(
+      discount,
+      data.items,
+      data.subtotal,
+    );
+
+    if (discount.event_ids && discount.event_ids.length > 0 && eligibleItems.length === 0) {
+      return res.status(400).json({ message: 'Kode diskon tidak berlaku untuk event di keranjang Anda' });
     }
-
-    if (discount.max_photos && eligibleItems.length > discount.max_photos) {
-      eligibleItems = eligibleItems.slice(0, discount.max_photos);
-    }
-
-    const eligibleSubtotal = eligibleItems.reduce((sum, item) => sum + Number(item.price || 0), 0);
-    let discountAmount =
-      discount.discount_type === 'percent'
-        ? Math.floor((eligibleSubtotal * discount.discount_value) / 100)
-        : Math.min(discount.discount_value, eligibleSubtotal);
-    discountAmount = Math.min(discountAmount, data.subtotal);
 
     res.json({
       valid: true,
@@ -51,7 +37,7 @@ router.post('/validate', async (req, res) => {
       discount_amount: discountAmount,
       max_photos: discount.max_photos,
       eligible_photo_count: eligibleItems.length,
-      event_ids: allowedEventIds,
+      event_ids: discount.event_ids,
       label: discount.discount_type === 'percent' ? `${discount.discount_value}%` : `Rp ${discount.discount_value.toLocaleString()}`,
     });
   } catch (error) {
@@ -89,7 +75,7 @@ router.post('/', protect, superAdmin, async (req, res) => {
       event_ids: data.event_ids && data.event_ids.length > 0 ? data.event_ids.map(Number) : null,
       is_active: data.is_active !== false,
       usage_limit: data.usage_limit ?? null,
-      valid_until: data.valid_until ? new Date(data.valid_until) : null,
+      valid_until: data.valid_until ? endOfDay(data.valid_until) : null,
     });
     res.status(201).json(discount);
   } catch (error) {
@@ -114,7 +100,7 @@ router.put('/:id', protect, superAdmin, async (req, res) => {
     if (data.event_ids !== undefined) discount.event_ids = data.event_ids && data.event_ids.length > 0 ? data.event_ids.map(Number) : null;
     if (data.is_active !== undefined) discount.is_active = data.is_active;
     if (data.usage_limit !== undefined) discount.usage_limit = data.usage_limit ?? null;
-    if (data.valid_until !== undefined) discount.valid_until = data.valid_until ? new Date(data.valid_until) : null;
+    if (data.valid_until !== undefined) discount.valid_until = data.valid_until ? endOfDay(data.valid_until) : null;
 
     await discount.save();
     res.json(discount);

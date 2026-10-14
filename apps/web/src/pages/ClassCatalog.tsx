@@ -98,6 +98,7 @@ export default function ClassCatalog() {
                 url: variant.url,
                 startNo: photo.start_no || photo.startNo,
                 price: photo.price,
+                eventId: Number(eventId),
                 className: decodeURIComponent(String(className)),
                 eventName: event?.name || '',
                 variant: variantNumber,

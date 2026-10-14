@@ -5,6 +5,7 @@ import { sequelize } from '../config/db';
 import { Order, OrderItem, Photo, Event, RecapPhoto, User } from '../models';
 import { AuthRequest, admin, optionalAuth, protect } from '../middleware/auth';
 import { validate } from '../utils/validate';
+import { computeDiscount, checkDiscountValidity } from '../utils/discount';
 import { generateGuestToken, hashToken } from '../utils/token';
 import { sendTransactionEmail } from '../services/emailService';
 
@@ -121,26 +122,20 @@ router.post('/', optionalAuth, async (req: AuthRequest, res: Response) => {
         where: { code: data.discountCode.toUpperCase().trim() },
         transaction: t,
       });
-      if (discount && discount.is_active) {
-        const notExpired = !discount.valid_until || new Date(discount.valid_until) >= new Date();
-        const withinLimit = !discount.usage_limit || discount.used_count < discount.usage_limit;
-        if (notExpired && withinLimit) {
-          let eligible = [...orderItems];
-          if (discount.event_ids && discount.event_ids.length > 0) {
-            eligible = eligible.filter((i) => discount.event_ids!.includes(Number(i.event_id)));
+      if (discount) {
+        const validity = checkDiscountValidity(discount);
+        if (validity.ok) {
+          const { discountAmount: computed } = computeDiscount(
+            discount,
+            orderItems.map((i) => ({ price: i.price, eventId: i.event_id })),
+            totalPrice,
+          );
+          if (computed > 0) {
+            discountAmount = computed;
+            appliedCode = discount.code;
+            discount.used_count += 1;
+            await discount.save({ transaction: t });
           }
-          if (discount.max_photos && eligible.length > discount.max_photos) {
-            eligible = eligible.slice(0, discount.max_photos);
-          }
-          const eligibleSubtotal = eligible.reduce((sum, i) => sum + i.price, 0);
-          discountAmount =
-            discount.discount_type === 'percent'
-              ? Math.floor((eligibleSubtotal * discount.discount_value) / 100)
-              : Math.min(discount.discount_value, eligibleSubtotal);
-          discountAmount = Math.min(discountAmount, totalPrice);
-          appliedCode = discount.code;
-          discount.used_count += 1;
-          await discount.save({ transaction: t });
         }
       }
     }

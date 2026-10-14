@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import AdminLayout from '../../components/AdminLayout';
 import { getDiscounts, createDiscount, updateDiscount, deleteDiscount } from '../../services/api';
 import api from '../../services/api';
 import { Tag, X, Plus, CheckCircle2, AlertTriangle, Check } from 'lucide-react';
@@ -154,10 +155,15 @@ export default function DiscountManager() {
     };
 
     if (loading) {
-        return <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>Memuat...</div>;
+        return (
+            <AdminLayout title="Kelola Diskon" subtitle="Kode diskon & promosi">
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>Memuat...</div>
+            </AdminLayout>
+        );
     }
 
     return (
+        <AdminLayout title="Kelola Diskon" subtitle="Kode diskon & promosi">
         <div style={{ maxWidth: '900px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', textTransform: 'uppercase', fontStyle: 'italic' }}>
@@ -334,5 +340,6 @@ export default function DiscountManager() {
                 )}
             </div>
         </div>
+        </AdminLayout>
     );
 }

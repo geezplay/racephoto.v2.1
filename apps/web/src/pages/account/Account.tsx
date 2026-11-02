@@ -3,13 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { updateProfile } from '../../services/api';
 import { pageStyle, cardStyle, inputStyle, buttonStyle, headerTitleStyle } from '../auth/authStyles';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 export default function Account() {
   const { user, login, logout } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState(user?.name ?? '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -22,14 +25,26 @@ export default function Account() {
     try {
       const payload: { name?: string; password?: string } = {};
       if (name && name !== user?.name) payload.name = name;
-      if (password) payload.password = password;
-
+      if (password || confirmPassword) {
+        if (password.length < 6) {
+          setError('Password baru minimal 6 karakter.');
+          setSaving(false);
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError('Konfirmasi password tidak cocok.');
+          setSaving(false);
+          return;
+        }
+        payload.password = password;
+      }
       const res = await updateProfile(payload);
       const token = localStorage.getItem('token') as string;
       login(token, res.data);
       setPassword('');
+      setConfirmPassword('');
       setMessage('Profil berhasil diperbarui.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
       setError(msg || 'Gagal memperbarui profil.');
     } finally {
@@ -68,8 +83,70 @@ export default function Account() {
           {error && <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <input type="text" placeholder="Nama" value={name} onChange={(e) => setName((e.target as any).value)} style={inputStyle} />
-            <input type="password" placeholder="Password baru (opsional)" value={password} onChange={(e) => setPassword((e.target as any).value)} style={inputStyle} />
+            <input type="text" placeholder="Nama" value={name} onChange={(e) => setName((e.target as HTMLInputElement).value)} style={inputStyle} />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password baru (opsional)"
+                value={password}
+                onChange={(e) => setPassword((e.target as HTMLInputElement).value)}
+                style={{ ...inputStyle, paddingRight: '3rem' }}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                style={{
+                  position: 'absolute',
+                  right: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.4)',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Verifikasi password baru"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword((e.target as HTMLInputElement).value)}
+                style={{ ...inputStyle, paddingRight: '3rem' }}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                aria-label={showConfirmPassword ? 'Sembunyikan konfirmasi password' : 'Tampilkan konfirmasi password'}
+                style={{
+                  position: 'absolute',
+                  right: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.4)',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
             <button type="submit" disabled={saving} style={{ ...buttonStyle, opacity: saving ? 0.5 : 1 }}>
               {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
             </button>
